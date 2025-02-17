@@ -34,14 +34,14 @@ class HumanDetector():
             patience = 2
         )
     
-    def predict_b64image(self, b64image):
+    def predict_b64image(self, b64image, confidence_threshold):
         if self._model:
             pilimage = b64image_to_pilimage(b64image)
             
             predictions = self._model.predict(
                 source = pilimage, 
                 imgsz = 640, 
-                conf = 0.25
+                conf = confidence_threshold
             )
             
             return predictions
@@ -49,12 +49,12 @@ class HumanDetector():
         else:
             print("No model selected ...") 
             
-    def predict_from_file(self, image_file):
+    def predict_from_file(self, image_file, confidence_threshold):
         if self._model:            
             predictions = self._model.predict(
                 source = image_file, 
                 imgsz = 640, 
-                conf = 0.25
+                conf = confidence_threshold
             )
             
             return predictions

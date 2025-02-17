@@ -40,7 +40,9 @@ def main():
             config.get('dataset_name'),
             'test',
             config.get('test_image_filename')
-        )
+        ),
+        
+        confidence_threshold = 0.5
     )
 
     print(predictions)

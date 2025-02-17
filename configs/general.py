@@ -15,7 +15,7 @@ load_dotenv(
 
 @dataclass
 class EnvConfig:
-    pass
+    port = int(os.getenv('PORT'))
 
 @dataclass
 class PathsConfig:
