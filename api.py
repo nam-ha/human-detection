@@ -90,7 +90,7 @@ async def root():
 router = APIRouter(prefix = "/api/v1")
 
 @router.post("/predict")
-async def predict(request: PredictRequest):
+async def predict(request: PredictRequest) -> PredictResponse:
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     query_image_file = os.path.join(
         paths_config.media_storage_folder,
