@@ -1,3 +1,4 @@
+import os
 import base64
 
 from io import BytesIO
@@ -20,6 +21,11 @@ def pilimage_to_b64image(pilimage):
     return b64image
 
 def save_b64image(b64image, save_file):
+    save_folder = os.path.dirname(save_file)
+    
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+        
     image_data = base64.b64decode(b64image)
     
     image_buffer = BytesIO(image_data)
@@ -38,7 +44,7 @@ class BBoxDrawer():
         
         pilimage = b64image_to_pilimage(b64image)
         draw = ImageDraw.Draw(pilimage)
-        font = ImageFont.truetype("arial.ttf", size = 20)
+        font = ImageFont.load_default(size = 20)
     
         for xywh, label, confidence, color in zip(xywhs, labels, confidences, colors):
             x, y, w, h = xywh

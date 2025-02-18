@@ -103,8 +103,8 @@ async def predict(request: PredictRequest):
         'results',
         f'{current_time}.png'
     )
-            
-    pure_b64image = request.b64image.replace('data:image/png;base64,', '')
+    
+    pure_b64image = request.b64image.replace('data:image/png;base64,', '').replace('data:image/jpeg;base64,', '')
     
     predictions = detector.predict_b64image(
         b64image = pure_b64image,

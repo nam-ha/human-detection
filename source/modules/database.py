@@ -44,7 +44,7 @@ class HumanDetectorDatabase:
                 session.commit()
         
 class PredictionRecord(Base):
-    __tablename__ = 'Predictions'
+    __tablename__ = 'predictions'
 
     query_id = Column(Integer, primary_key = True)
     time = Column(String(32))
