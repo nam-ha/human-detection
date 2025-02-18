@@ -1,11 +1,10 @@
 import os
 
 import uvicorn
+import psycopg2
 
-from fastapi import FastAPI, APIRouter, Request, HTTPException
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel
 
@@ -25,6 +24,37 @@ class PredictResponse(BaseModel):
     b64image: str
     num_humans: int
 
+def setup_folders():
+    os.makedirs(
+        paths_config.media_storage_folder,
+        exist_ok = True
+    )
+
+def setup_database():
+    conn = psycopg2.connect(
+        dbname = env_config.database_name, 
+        user = env_config.database_user,
+        password = env_config.database_password, 
+        host = env_config.database_host, 
+        port = env_config.database_port
+    )
+    
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS Predictions (
+        query_id SERIAL PRIMARY KEY,
+        time VARCHAR(32) NOT NULL,
+        query_image_file VARCHAR(64) NOT NULL,
+        result_image_file VARCHAR(64) NOT NULL,
+        num_humans INT NOT NULL
+    );
+    """)
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+        
 # ==
 
 database = HumanDetectorDatabase(
@@ -125,6 +155,9 @@ async def predict(request: PredictRequest):
 app.include_router(router)
 
 def main(): 
+    setup_folders()
+    setup_database()
+    
     uvicorn.run(
         app, 
         host = "0.0.0.0", 
