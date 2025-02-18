@@ -38,6 +38,14 @@ bbox_drawer = BBoxDrawer()
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = ["*"],
+    allow_credentials = True,
+    allow_methods = ["*"],
+    allow_headers = ["*"],
+)
+
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
@@ -45,9 +53,11 @@ async def root():
 router = APIRouter(prefix = "/api/v1")
 
 @router.post("/predict")
-async def predict(request: PredictRequest):            
+async def predict(request: PredictRequest):      
+    pure_b64image = request.b64image.replace('data:image/png;base64,', '')
+
     predictions = detector.predict_b64image(
-        b64image = request.b64image,
+        b64image = pure_b64image,
         confidence_threshold = request.confidence_threshold
     )
     
@@ -60,7 +70,7 @@ async def predict(request: PredictRequest):
     num_detected_objects = len(xywhs)
         
     drawn_b64image = bbox_drawer.draw_on_b64image(
-        b64image = request.b64image,
+        b64image = pure_b64image,
         xywhs = xywhs,
         labels = ['human' for _ in range(len(xywhs))],
         colors = ['red' for _ in range(len(xywhs))],

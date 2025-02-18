@@ -30,7 +30,6 @@ class BBoxDrawer():
         pilimage = b64image_to_pilimage(b64image)
         
         for xywh, label, color in zip(xywhs, labels, colors):
-            breakpoint()
             x, y, w, h = xywh
             
             draw = ImageDraw.Draw(pilimage)
