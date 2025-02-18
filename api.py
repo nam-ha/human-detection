@@ -9,8 +9,11 @@ from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel
 
+from datetime import datetime
+
 from source.core import HumanDetector
-from source.utils.image import BBoxDrawer
+from source.modules.database import HumanDetectorDatabase, PredictionRecord
+from source.utils.image import BBoxDrawer, save_b64image
 
 from configs.general import env_config, paths_config
 
@@ -23,6 +26,10 @@ class PredictResponse(BaseModel):
     num_humans: int
 
 # ==
+
+database = HumanDetectorDatabase(
+    database_url = env_config.database_url
+)
 
 detector = HumanDetector()
 
@@ -53,9 +60,22 @@ async def root():
 router = APIRouter(prefix = "/api/v1")
 
 @router.post("/predict")
-async def predict(request: PredictRequest):   
+async def predict(request: PredictRequest):
+    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    query_image_file = os.path.join(
+        paths_config.media_storage_folder,
+        'queries',
+        f'{current_time}.png'
+    )
+    
+    result_image_file = os.path.join(
+        paths_config.media_storage_folder,
+        'results',
+        f'{current_time}.png'
+    )
+            
     pure_b64image = request.b64image.replace('data:image/png;base64,', '')
-
+    
     predictions = detector.predict_b64image(
         b64image = pure_b64image,
         confidence_threshold = request.confidence_threshold
@@ -77,6 +97,25 @@ async def predict(request: PredictRequest):
         colors = ['red' for _ in range(len(xywhs))],
         line_width = 2
     )
+    
+    save_b64image(
+        b64image = pure_b64image,
+        save_file = query_image_file
+    )
+    
+    save_b64image(
+        b64image = drawn_b64image, 
+        save_file = result_image_file
+    )
+    
+    prediction_record = PredictionRecord(
+        time = current_time,
+        query_image_file = query_image_file,
+        result_image_file = result_image_file,
+        num_humans = num_detected_objects
+    )
+    
+    database.add_record(prediction_record)
     
     return PredictResponse(
         b64image = drawn_b64image,

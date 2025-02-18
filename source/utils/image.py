@@ -19,6 +19,15 @@ def pilimage_to_b64image(pilimage):
     
     return b64image
 
+def save_b64image(b64image, save_file):
+    image_data = base64.b64decode(b64image)
+    
+    image_buffer = BytesIO(image_data)
+    
+    pilimage = Image.open(image_buffer)
+    
+    pilimage.save(save_file, format = 'PNG')
+
 class BBoxDrawer():
     def __init__(self):
         pass

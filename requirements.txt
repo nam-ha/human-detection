@@ -1,3 +1,5 @@
 python-dotenv
 ultralytics
 fastapi[all]
+SQLAlchemy
+psycopg2

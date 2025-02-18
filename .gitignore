@@ -181,5 +181,6 @@ datasets/
 outputs/
 models/
 runs/
+media_storage/
 
 *config.json
