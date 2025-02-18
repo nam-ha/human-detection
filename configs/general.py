@@ -15,7 +15,10 @@ load_dotenv(
 
 @dataclass
 class EnvConfig:
+    # Deployment
     port = int(os.getenv('PORT'))
+    
+    model_filename = os.getenv('MODEL_FILENAME')
 
 @dataclass
 class PathsConfig:

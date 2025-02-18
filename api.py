@@ -30,7 +30,7 @@ detector.load_model(
     model_file = os.path.join(
         paths_config.models_folder,
         'finetuned',
-        'human-1.pt'
+        env_config.model_filename
     )
 )
 
@@ -53,7 +53,7 @@ async def root():
 router = APIRouter(prefix = "/api/v1")
 
 @router.post("/predict")
-async def predict(request: PredictRequest):      
+async def predict(request: PredictRequest):   
     pure_b64image = request.b64image.replace('data:image/png;base64,', '')
 
     predictions = detector.predict_b64image(
@@ -69,10 +69,11 @@ async def predict(request: PredictRequest):
     
     num_detected_objects = len(xywhs)
         
-    drawn_b64image = bbox_drawer.draw_on_b64image(
+    drawn_b64image = bbox_drawer.draw_bboxes_on_b64image(
         b64image = pure_b64image,
         xywhs = xywhs,
         labels = ['human' for _ in range(len(xywhs))],
+        confidences = confidences,
         colors = ['red' for _ in range(len(xywhs))],
         line_width = 2
     )

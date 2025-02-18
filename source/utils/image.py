@@ -1,7 +1,7 @@
 import base64
 
 from io import BytesIO
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 def b64image_to_pilimage(b64image):
     image_data = base64.b64decode(b64image)
@@ -23,18 +23,48 @@ class BBoxDrawer():
     def __init__(self):
         pass
     
-    def draw_on_b64image(self, b64image, xywhs, labels, colors, line_width = 2):
+    def draw_bboxes_on_b64image(self, b64image, xywhs, labels, colors, confidences, line_width = 2):
         if len(xywhs) == 0:
             return b64image
         
         pilimage = b64image_to_pilimage(b64image)
-        
-        for xywh, label, color in zip(xywhs, labels, colors):
+        draw = ImageDraw.Draw(pilimage)
+        font = ImageFont.truetype("arial.ttf", size = 20)
+    
+        for xywh, label, confidence, color in zip(xywhs, labels, confidences, colors):
             x, y, w, h = xywh
+
+            x_min = x - w // 2
+            y_min = y - h // 2
+            x_max = x + w // 2
+            y_max = y + h // 2
             
-            draw = ImageDraw.Draw(pilimage)
+            draw.rectangle(
+                xy = (x_min, y_min, x_max, y_max), 
+                outline = color, 
+                width = line_width
+            )
+
+            text = f"{confidence:.2f}"
+            text_bbox = draw.textbbox(
+                xy = (0, 0),
+                text = text, 
+                font = font
+            )
             
-            draw.rectangle(xy = (x, y, x + w, y + h), outline = color, width = line_width)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
+        
+            text_background = (x_min, y_min - text_height - 4, x_min + text_width, y_min)
+
+            draw.rectangle(text_background, fill = color)
+            
+            draw.text(
+                xy = (x_min, y_min - text_height - 4), 
+                text = text, 
+                fill = "white", 
+                font = font
+            )
                         
         drawn_b64image = pilimage_to_b64image(pilimage)
         
