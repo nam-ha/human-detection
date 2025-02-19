@@ -16,10 +16,11 @@ load_dotenv(
 
 @dataclass
 class EnvConfig:
-    # Deployment
+    # API Deployment
     port = int(os.getenv('PORT'))
-    
     model_filename = os.getenv('MODEL_FILENAME')
+    
+    # Database
     database_url = os.getenv('DATABASE_URL')
     database_name = os.getenv('DATABASE_NAME')
     database_host = os.getenv('DATABASE_HOST')
@@ -27,6 +28,9 @@ class EnvConfig:
     database_user = os.getenv('DATABASE_USER')
     database_password = os.getenv('DATABASE_PASSWORD')
     
+    # Data validation
+    min_image_size = int(os.getenv('MIN_IMAGE_SIZE'))
+    max_image_size = int(os.getenv('MAX_IMAGE_SIZE'))
     
 @dataclass
 class PathsConfig:

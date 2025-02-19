@@ -41,6 +41,14 @@ class PredictRequest(BaseModel):
         except Exception:
             raise ValueError("Invalid base64 image data.")
         
+        pilimage_size = pilimage.size[0] * pilimage.size[1]
+        
+        if pilimage_size < env_config.min_image_size:
+            raise ValueError("Image too small.")
+        
+        if pilimage_size > env_config.max_image_size:
+            raise ValueError("Image too large.")
+        
         format = pilimage.format
         if format not in ['PNG', 'JPEG', 'JPG']:
             raise ValueError(f"Not supported image format: {format}")
