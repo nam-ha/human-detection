@@ -34,6 +34,14 @@ def save_b64image(b64image, save_file):
     
     pilimage.save(save_file, format = 'PNG')
 
+def strip_mime_prefix(b64image):
+    if b64image.startswith('data:image/'):
+        comma_index = b64image.find(',')
+        if comma_index != -1:
+            return b64image[comma_index + 1:] 
+    
+    return b64image
+    
 class BBoxDrawer():
     def __init__(self):
         pass

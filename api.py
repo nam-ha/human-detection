@@ -2,24 +2,51 @@ import os
 
 import uvicorn
 import psycopg2
+import base64
 
 from fastapi import FastAPI, APIRouter
+
 from fastapi.middleware.cors import CORSMiddleware
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
+from io import BytesIO
+from PIL import Image
 from datetime import datetime
 
 from source.core import HumanDetector
 from source.modules.database import HumanDetectorDatabase, PredictionRecord
-from source.utils.image import BBoxDrawer, save_b64image
+from source.utils.image import BBoxDrawer, save_b64image, strip_mime_prefix
 
 from configs.general import env_config, paths_config
 
 class PredictRequest(BaseModel):
     b64image: str
-    confidence_threshold: float
+    confidence_threshold: float = Field(ge = 0.0, le = 1.0)
 
+    @field_validator("b64image")
+    @classmethod
+    def validate_b64image(cls, b64image):
+        b64image = strip_mime_prefix(b64image)
+    
+        try:
+            image_data = base64.b64decode(b64image)
+            
+            image_buffer = BytesIO(image_data)
+            
+            pilimage = Image.open(image_buffer)
+            
+            pilimage.verify()
+            
+        except Exception:
+            raise ValueError("Invalid base64 image data.")
+        
+        format = pilimage.format
+        if format not in ['PNG', 'JPEG', 'JPG']:
+            raise ValueError(f"Not supported image format: {format}")
+            
+        return b64image
+        
 class PredictResponse(BaseModel):
     b64image: str
     num_humans: int
@@ -92,6 +119,7 @@ router = APIRouter(prefix = "/api/v1")
 @router.post("/predict")
 async def predict(request: PredictRequest) -> PredictResponse:
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            
     query_image_file = os.path.join(
         paths_config.media_storage_folder,
         'queries',
@@ -103,11 +131,9 @@ async def predict(request: PredictRequest) -> PredictResponse:
         'results',
         f'{current_time}.png'
     )
-    
-    pure_b64image = request.b64image.replace('data:image/png;base64,', '').replace('data:image/jpeg;base64,', '')
-    
+        
     predictions = detector.predict_b64image(
-        b64image = pure_b64image,
+        b64image = request.b64image,
         confidence_threshold = request.confidence_threshold
     )
     
@@ -120,7 +146,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
     num_detected_objects = len(xywhs)
         
     drawn_b64image = bbox_drawer.draw_bboxes_on_b64image(
-        b64image = pure_b64image,
+        b64image = request.b64image,
         xywhs = xywhs,
         labels = ['human' for _ in range(len(xywhs))],
         confidences = confidences,
@@ -129,7 +155,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
     )
     
     save_b64image(
-        b64image = pure_b64image,
+        b64image = request.b64image,
         save_file = query_image_file
     )
     
