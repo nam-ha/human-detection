@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import create_engine, Column, DateTime, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -38,20 +40,20 @@ class HumanDetectorDatabase:
         with self.Session() as session:
             query = session.query(Predictions)
             
-            if query_id:
+            if query_id is not None and query_id != "":
                 query = query.filter(Predictions.query_id == query_id)
             
-            if time_min:
-                query = query.filter(Predictions.time >= time_min)
+            if time_min is not None and time_min != "":
+                query = query.filter(Predictions.time >= datetime.strptime(time_min, "%Y-%m-%d_%H-%M-%S"))
             
-            if time_max:
-                query = query.filter(Predictions.time <= time_max)
+            if time_max is not None and time_max != "":
+                query = query.filter(Predictions.time <= datetime.strptime(time_max, "%Y-%m-%d_%H-%M-%S"))
             
-            if num_humans_min:
-                query = query.filter(Predictions.num_humans >= num_humans_min)
+            if num_humans_min is not None and num_humans_min != "":
+                query = query.filter(Predictions.num_humans >= int(num_humans_min))
                 
-            if num_humans_max:
-                query = query.filter(Predictions.num_humans <= num_humans_max)
+            if num_humans_max is not None and num_humans_max != "":
+                query = query.filter(Predictions.num_humans <= int(num_humans_max))
                 
             total = query.count()
             

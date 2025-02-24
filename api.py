@@ -3,7 +3,7 @@ import os
 import uvicorn
 import base64
 
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Depends, HTTPException
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,6 +19,50 @@ from source.modules.database import HumanDetectorDatabase, Predictions
 from source.utils.image import BBoxDrawer, save_b64image, strip_mime_prefix
 
 from configs.general import env_config, paths_config
+    
+def setup_folders():
+    os.makedirs(
+        paths_config.media_storage_folder,
+        exist_ok = True
+    )
+     
+# ==
+
+# Setup database
+database = HumanDetectorDatabase(
+    database_url = env_config.database_url
+)
+
+database.create_tables()
+
+# Init model
+detector = HumanDetector()
+
+detector.load_model(
+    model_file = os.path.join(
+        paths_config.models_folder,
+        'finetuned',
+        env_config.model_filename
+    )
+)
+
+bbox_drawer = BBoxDrawer()
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = ["*"],
+    allow_credentials = True,
+    allow_methods = ["*"],
+    allow_headers = ["*"],
+)
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+router = APIRouter(prefix = "/api/v1")
 
 class PredictRequest(BaseModel):
     b64image: str
@@ -58,109 +102,7 @@ class PredictRequest(BaseModel):
 class PredictResponse(BaseModel):
     b64image: str
     num_humans: int
-
-class HistoryRequest(BaseModel):
-    page_index: int = Field(ge = 1, default = 1)
-    page_size: int = Field(ge = 1, default = 10)
     
-    query_id: int | None = None
-    
-    time_min: str | None = None
-    time_max: str | None = None
-
-    num_humans_min: int | None = None
-    num_humans_max: int | None = None
-    
-    @field_validator("query_id")
-    def validate_query_id(cls, query_id):
-        if query_id:
-            try:
-                return int(query_id)
-            
-            except:
-                raise ValueError("Invalid search value.")
-
-        return None
-    
-    @field_validator("time_min")
-    def validate_time_min(cls, time_min):
-        if time_min:
-            try:
-                return datetime.strptime(time_min, "%Y-%m-%d_%H-%M-%S")
-            
-            except:
-                raise ValueError("Invalid time format.")
-        
-        return None
-    
-    @field_validator("time_max")
-    def validate_time_max(cls, time_max):
-        if time_max:
-            try:
-                return datetime.strptime(time_max, "%Y-%m-%d_%H-%M-%S")
-            
-            except:
-                raise ValueError("Invalid time format.")
-            
-        return None
-    
-class HistoryRecord(BaseModel):
-    query_id: int
-    time: str
-    
-    query_image_file: str
-    result_image_file: str
-    num_humans: int
-
-class HistoryResponse(BaseModel):
-    total: int
-    
-    records: List[HistoryRecord]
-    
-def setup_folders():
-    os.makedirs(
-        paths_config.media_storage_folder,
-        exist_ok = True
-    )
-        
-# ==
-
-# Setup database
-database = HumanDetectorDatabase(
-    database_url = env_config.database_url
-)
-
-database.create_tables()
-
-# Init model
-detector = HumanDetector()
-
-detector.load_model(
-    model_file = os.path.join(
-        paths_config.models_folder,
-        'finetuned',
-        env_config.model_filename
-    )
-)
-
-bbox_drawer = BBoxDrawer()
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins = ["*"],
-    allow_credentials = True,
-    allow_methods = ["*"],
-    allow_headers = ["*"],
-)
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-router = APIRouter(prefix = "/api/v1")
-
 @router.post("/predict")
 async def predict(request: PredictRequest) -> PredictResponse:
     current_time = datetime.now()
@@ -224,8 +166,131 @@ async def predict(request: PredictRequest) -> PredictResponse:
         num_humans = num_detected_objects
     )
 
+
+class HistoryRequest(BaseModel):
+    page_index: int = Field(ge = 1, default = 1)
+    page_size: int = Field(ge = 1, default = 10)
+    
+    query_id: str | None = None
+    
+    time_min: str | None = None
+    time_max: str | None = None
+
+    num_humans_min: str | None = None
+    num_humans_max: str | None = None
+    
+    @field_validator("query_id")
+    @classmethod
+    def validate_query_id(cls, query_id):
+        if query_id is not None and query_id != "":
+            try:
+                _ = int(query_id)
+                
+            except Exception:
+                raise HTTPException(
+                    422, 
+                    detail = [
+                        {
+                            'msg': "Invalid query id. Must be an integer.",
+                        }
+                    ]
+                )
+                
+        return query_id
+    
+    @field_validator("time_min")
+    @classmethod
+    def validate_time_min(cls, time_min):
+        if time_min is not None and time_min != "":
+            try:
+                _ = datetime.strptime(time_min, "%Y-%m-%d_%H-%M-%S")
+                
+            except Exception:
+                raise HTTPException(
+                    422, 
+                    detail = [
+                        {
+                            'msg': "Invalid time format. Must be in the format: YYYY-MM-DD_HH-MM-SS",
+                        }
+                    ]
+                )
+            
+        return time_min
+    
+    @field_validator("time_max")
+    @classmethod
+    def validate_time_max(cls, time_max):
+        if time_max is not None and time_max != "":
+            try:
+                _ = datetime.strptime(time_max, "%Y-%m-%d_%H-%M-%S")
+                
+            except Exception:
+                raise HTTPException(
+                    422, 
+                    detail = [
+                        {
+                            'msg': "Invalid time format. Must be in the format: YYYY-MM-DD_HH-MM-SS",
+                        }
+                    ]
+                )
+            
+        return time_max
+
+    @field_validator("num_humans_min")
+    @classmethod
+    def validate_num_humans_min(cls, num_humans_min):
+        if num_humans_min is not None and num_humans_min != "":
+            try:
+                int(num_humans_min)
+                
+            except Exception:
+                raise HTTPException(
+                    422, 
+                    detail = [
+                        {
+                            'msg': "Invalid number of humans. Must be an integer.",
+                        }
+                    ]
+                )
+
+        return num_humans_min
+    
+    @field_validator("num_humans_max")
+    @classmethod
+    def validate_num_humans_max(cls, num_humans_max):
+        if num_humans_max is not None and num_humans_max != "":
+            try:
+                int(num_humans_max)
+                
+            except Exception:
+                raise HTTPException(
+                    422, 
+                    detail = [
+                        {
+                            'msg': "Invalid number of humans. Must be an integer.",
+                        }
+                    ]
+                )
+            
+        return num_humans_max
+    
+class HistoryRecord(BaseModel):
+    query_id: int
+    time: str
+    
+    query_image_file: str
+    result_image_file: str
+    num_humans: int
+
+class HistoryResponse(BaseModel):
+    total: int
+    
+    records: List[HistoryRecord]
+    
 @router.get("/history")
-async def get_history(request: HistoryRequest) -> HistoryResponse:
+async def get_history(
+    request: HistoryRequest = Depends()
+) -> HistoryResponse:
     records, total = database.get_records_from_predictions(
         query_id = request.query_id,
         time_min = request.time_min,

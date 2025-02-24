@@ -21,18 +21,31 @@ def main():
         config = json.load(file)
         
     # Predict
+    breakpoint()
+    parametrized_url = f'http://localhost:{env_config.port}/api/v1/history?'
+    if 'search_query_id' in config:
+        parametrized_url += f'search_query_id={config["search_query_id"]}&'
+        
+    if 'time_min' in config:
+        parametrized_url += f'time_min={config["time_min"]}&'
+        
+    if 'time_max' in config:
+        parametrized_url += f'time_max={config["time_max"]}&'
+    
+    if 'num_humans_min' in config:
+        parametrized_url += f'num_humans_min={config["num_humans_min"]}&'
+        
+    if 'num_humans_max' in config:
+        parametrized_url += f'num_humans_max={config["num_humans_max"]}&'
+    
+    if 'page_size' in config:
+        parametrized_url += f'page_size={config["page_size"]}&'
+        
+    if 'page_index' in config:
+        parametrized_url += f'page_index={config["page_index"]}&'
+    
     response = requests.get(
-        url = f'http://localhost:{env_config.port}/api/v1/history',
-        json = {
-            'page_size': config.get('page_size', 10),
-            'page_index': config.get('page_index', 1),
-            'search_query_id': config.get('search_query_id', None),
-            
-            'time_min': config.get('time_min', None),
-            'time_max': config.get('time_max', None),
-            'num_humans_min': config.get('num_humans_min', None),
-            'num_humans_max': config.get('num_humans_max', None)
-        }
+        url = parametrized_url
     )
     
     records = response.json().get('records')
