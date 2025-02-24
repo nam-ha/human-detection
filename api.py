@@ -12,9 +12,10 @@ from pydantic import BaseModel, Field, field_validator
 from io import BytesIO
 from PIL import Image
 from datetime import datetime
+from typing import List
 
 from source.core import HumanDetector
-from source.modules.database import HumanDetectorDatabase, PredictionRecord
+from source.modules.database import HumanDetectorDatabase, Predictions
 from source.utils.image import BBoxDrawer, save_b64image, strip_mime_prefix
 
 from configs.general import env_config, paths_config
@@ -58,6 +59,64 @@ class PredictResponse(BaseModel):
     b64image: str
     num_humans: int
 
+class HistoryRequest(BaseModel):
+    page_index: int = Field(ge = 1, default = 1)
+    page_size: int = Field(ge = 1, default = 10)
+    
+    query_id: int | None = None
+    
+    time_min: str | None = None
+    time_max: str | None = None
+
+    num_humans_min: int | None = None
+    num_humans_max: int | None = None
+    
+    @field_validator("query_id")
+    def validate_query_id(cls, query_id):
+        if query_id:
+            try:
+                return int(query_id)
+            
+            except:
+                raise ValueError("Invalid search value.")
+
+        return None
+    
+    @field_validator("time_min")
+    def validate_time_min(cls, time_min):
+        if time_min:
+            try:
+                return datetime.strptime(time_min, "%Y-%m-%d_%H-%M-%S")
+            
+            except:
+                raise ValueError("Invalid time format.")
+        
+        return None
+    
+    @field_validator("time_max")
+    def validate_time_max(cls, time_max):
+        if time_max:
+            try:
+                return datetime.strptime(time_max, "%Y-%m-%d_%H-%M-%S")
+            
+            except:
+                raise ValueError("Invalid time format.")
+            
+        return None
+    
+class HistoryRecord(BaseModel):
+    query_id: int
+    time: str
+    
+    query_image_file: str
+    result_image_file: str
+    num_humans: int
+
+class HistoryResponse(BaseModel):
+    total: int
+    
+    records: List[HistoryRecord]
+    
 def setup_folders():
     os.makedirs(
         paths_config.media_storage_folder,
@@ -104,18 +163,19 @@ router = APIRouter(prefix = "/api/v1")
 
 @router.post("/predict")
 async def predict(request: PredictRequest) -> PredictResponse:
-    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    current_time = datetime.now()
+    current_time_str = current_time.strftime("%Y-%m-%d_%H-%M-%S")
             
     query_image_file = os.path.join(
         paths_config.media_storage_folder,
         'queries',
-        f'{current_time}.png'
+        f'{current_time_str}.png'
     )
     
     result_image_file = os.path.join(
         paths_config.media_storage_folder,
         'results',
-        f'{current_time}.png'
+        f'{current_time_str}.png'
     )
         
     predictions = detector.predict_b64image(
@@ -150,7 +210,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
         save_file = result_image_file
     )
     
-    prediction_record = PredictionRecord(
+    prediction_record = Predictions(
         time = current_time,
         query_image_file = query_image_file,
         result_image_file = result_image_file,
@@ -162,6 +222,33 @@ async def predict(request: PredictRequest) -> PredictResponse:
     return PredictResponse(
         b64image = drawn_b64image,
         num_humans = num_detected_objects
+    )
+
+@router.get("/history")
+async def get_history(request: HistoryRequest) -> HistoryResponse:
+    records, total = database.get_records_from_predictions(
+        query_id = request.query_id,
+        time_min = request.time_min,
+        time_max = request.time_max,
+        num_humans_min = request.num_humans_min,
+        num_humans_max = request.num_humans_max,
+        page_size = request.page_size,
+        page_index = request.page_index
+    )
+    
+    return HistoryResponse(
+        total = total,
+        
+        records = [
+            HistoryRecord(
+                query_id = record.query_id,
+                time = record.time.strftime("%Y-%m-%d_%H-%M-%S"),
+                query_image_file = record.query_image_file,
+                result_image_file = record.result_image_file,
+                num_humans = record.num_humans
+            )
+            for record in records
+        ]
     )
 
 app.include_router(router)
