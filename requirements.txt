@@ -3,4 +3,3 @@ ultralytics
 fastapi
 uvicorn
 SQLAlchemy
-psycopg2
